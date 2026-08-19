@@ -1,0 +1,92 @@
+/**
+ * Cloudflare Worker configuration — every resource the app needs is declared here.
+ *
+ * Deploying with `npm run deploy` auto-provisions D1 and R2 (wrangler >= 4.45 creates
+ * resources for bindings without IDs). Durable Objects are created by the `migrations`
+ * block. The Queues are created on first deploy too; if your account requires it, run:
+ *   npx wrangler queues create shopify-jobs
+ *   npx wrangler queues create shopify-jobs-dlq
+ *
+ * Rename `name` (and the resource names) to make this app yours.
+ */
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "shopify-cloudflare-app",
+	"main": "./src/worker/index.ts",
+	"compatibility_date": "2025-10-08",
+	"compatibility_flags": ["nodejs_compat"],
+	"observability": {
+		"enabled": true
+	},
+	"upload_source_maps": true,
+
+	// Static assets built by Vite. The Worker runs first for everything except the
+	// hashed /assets/* files, so it can inject the App Bridge meta tag + CSP header
+	// into HTML responses (see src/worker/index.ts).
+	"assets": {
+		"directory": "./dist/client",
+		"not_found_handling": "single-page-application",
+		"binding": "ASSETS",
+		"run_worker_first": ["/*", "!/assets/*"]
+	},
+
+	// Non-secret configuration. Secrets live in .dev.vars (local) / `wrangler secret` (prod).
+	"vars": {
+		// Shopify Admin API version — bump quarterly. https://shopify.dev/docs/api/usage/versioning
+		"SHOPIFY_API_VERSION": "2026-07",
+		// "console" (default: logs emails, zero setup), "resend" (RESEND_API_KEY
+		// secret), or "cloudflare" (requires the send_email binding below).
+		// Other services: implement EmailProvider in src/worker/email/provider.ts
+		"EMAIL_PROVIDER": "console",
+		// Must match r2_buckets[0].bucket_name — used for presigned download URLs
+		"R2_BUCKET_NAME": "shopify-digital-assets"
+	},
+
+	// D1: shops, assets, download grants. Schema is applied automatically on first
+	// request (see src/worker/db/bootstrap.ts) — no manual migration step needed.
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "shopify-app-db"
+		}
+	],
+
+	// Durable Objects (SQLite-backed):
+	//  - ShopCoordinator: per-shop webhook dedup + the global DB-migration lock
+	//  - DownloadGate: atomic per-grant download counting before minting R2 URLs
+	"durable_objects": {
+		"bindings": [
+			{ "name": "SHOP_COORDINATOR", "class_name": "ShopCoordinator" },
+			{ "name": "DOWNLOAD_GATE", "class_name": "DownloadGate" }
+		]
+	},
+	"migrations": [
+		{ "tag": "v1", "new_sqlite_classes": ["ShopCoordinator", "DownloadGate"] }
+	],
+
+	// Queues: Shopify webhooks are verified + enqueued, then processed in the
+	// consumer (src/worker/queue/consumer.ts) — keeps webhook responses under
+	// Shopify's 5-second deadline. Failed messages land in the dead-letter queue.
+	"queues": {
+		"producers": [{ "binding": "JOBS", "queue": "shopify-jobs" }],
+		"consumers": [
+			{
+				"queue": "shopify-jobs",
+				"max_batch_size": 10,
+				"max_batch_timeout": 5,
+				"max_retries": 3,
+				"dead_letter_queue": "shopify-jobs-dlq"
+			}
+		]
+	},
+
+	// R2: the digital assets merchants upload and buyers download. Egress is free.
+	"r2_buckets": [
+		{ "binding": "ASSETS_BUCKET", "bucket_name": "shopify-digital-assets" }
+	]
+
+	// Optional: Cloudflare Email Service (paid plan, beta, requires domain onboarding).
+	// Uncomment and set EMAIL_PROVIDER=cloudflare to use it instead of Resend.
+	// https://developers.cloudflare.com/email-service/
+	// ,"send_email": [{ "name": "EMAIL" }]
+}

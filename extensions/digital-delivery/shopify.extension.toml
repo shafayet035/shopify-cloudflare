@@ -1,0 +1,5 @@
+# Theme app extension: storefront blocks merchants can add in the theme editor.
+# Deployed with `shopify app deploy` (independent of the Worker deploy).
+# Regenerate/add more with: shopify app generate extension --template theme_app_extension
+name = "digital-delivery"
+type = "theme"

@@ -1,0 +1,11 @@
+# Tells the Shopify CLI how to run this app. The CLI is framework-agnostic —
+# it just runs these commands and injects SHOPIFY_API_KEY / SHOPIFY_API_SECRET /
+# HOST / PORT into their environment.
+# https://shopify.dev/docs/apps/build/cli-for-apps/app-structure
+
+roles = ["frontend", "backend"]
+webhooks_path = "/webhooks"
+
+[commands]
+dev = "node scripts/shopify-dev.mjs"
+build = "npm run build"

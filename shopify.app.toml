@@ -1,0 +1,41 @@
+# Shopify app configuration. Run `shopify app config link` once to connect this
+# file to an app in your Partner dashboard — the CLI fills in client_id and can
+# then push everything below with `shopify app deploy`.
+# https://shopify.dev/docs/apps/build/cli-for-apps/app-configuration
+
+# Filled by `shopify app config link`
+client_id = ""
+name = "digital-assets-app"
+handle = "digital-assets-app"
+
+# Your deployed Worker URL (or the tunnel URL during `shopify app dev` —
+# automatically_update_urls_on_dev keeps it in sync for you).
+application_url = "https://shopify-cloudflare-app.YOUR-SUBDOMAIN.workers.dev"
+embedded = true
+
+[build]
+automatically_update_urls_on_dev = true
+include_config_on_deploy = true
+
+# Managed installation: Shopify grants these scopes at install time — no OAuth
+# redirect flow in this app, ever. Auth is session token + token exchange.
+[access_scopes]
+scopes = "read_orders,read_products"
+
+[auth]
+# Not used by token exchange, but the field must exist. Keep it pointed at the app URL.
+redirect_urls = ["https://shopify-cloudflare-app.YOUR-SUBDOMAIN.workers.dev"]
+
+[webhooks]
+api_version = "2026-07"
+
+# All topics point at the same endpoint; the Worker verifies the HMAC, dedupes,
+# and dispatches by topic from the queue consumer.
+[[webhooks.subscriptions]]
+topics = ["orders/paid", "app/uninstalled"]
+uri = "/webhooks"
+
+# Mandatory for every App Store app — handled in src/worker/queue/jobs/compliance.ts
+[[webhooks.subscriptions]]
+compliance_topics = ["customers/data_request", "customers/redact", "shop/redact"]
+uri = "/webhooks"

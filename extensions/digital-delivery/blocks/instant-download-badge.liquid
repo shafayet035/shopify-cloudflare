@@ -1,0 +1,40 @@
+{% comment %}
+  Product-page block: shows an "instant download" badge so buyers know this
+  product is delivered digitally. Merchants add it in the theme editor
+  (product template > Add block > Apps > Instant download badge).
+{% endcomment %}
+
+<div class="digital-delivery-badge" style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;background:{{ block.settings.background_color }};color:{{ block.settings.text_color }};font-size:0.85em;">
+  <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+    <path d="M8 1a.75.75 0 0 1 .75.75v6.69l2.22-2.22a.75.75 0 1 1 1.06 1.06l-3.5 3.5a.75.75 0 0 1-1.06 0l-3.5-3.5a.75.75 0 0 1 1.06-1.06l2.22 2.22V1.75A.75.75 0 0 1 8 1Z"/>
+    <path d="M2.75 10.5a.75.75 0 0 1 .75.75v1.5c0 .41.34.75.75.75h7.5c.41 0 .75-.34.75-.75v-1.5a.75.75 0 0 1 1.5 0v1.5A2.25 2.25 0 0 1 11.75 15h-7.5A2.25 2.25 0 0 1 2 12.75v-1.5a.75.75 0 0 1 .75-.75Z"/>
+  </svg>
+  <span>{{ block.settings.badge_text }}</span>
+</div>
+
+{% schema %}
+{
+  "name": "Instant download badge",
+  "target": "section",
+  "settings": [
+    {
+      "type": "text",
+      "id": "badge_text",
+      "label": "Badge text",
+      "default": "Instant digital download"
+    },
+    {
+      "type": "color",
+      "id": "background_color",
+      "label": "Background",
+      "default": "#EAF4FF"
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "Text",
+      "default": "#1E4E8C"
+    }
+  ]
+}
+{% endschema %}

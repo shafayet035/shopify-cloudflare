@@ -1,0 +1,38 @@
+# Copy to .dev.vars for local development. In production, set each of these
+# with: npx wrangler secret put <NAME>   (or `npx wrangler secret bulk .dev.vars`)
+
+# ══════════════════════ REQUIRED ══════════════════════
+# The only three secrets the app needs to run.
+
+# Partner dashboard > your app > Client credentials.
+# (`shopify app dev` fills all three of these in automatically.)
+SHOPIFY_API_KEY=""
+SHOPIFY_API_SECRET=""
+# Public URL of the deployed Worker, e.g. https://my-app.me.workers.dev
+SHOPIFY_APP_URL="http://localhost:5173"
+
+# ══════════════════════ OPTIONAL ══════════════════════
+
+# --- Email ---------------------------------------------------------------
+# EMAIL_PROVIDER (a var in wrangler.jsonc, not a secret) picks the service:
+#   "console"    - no service at all: logs emails instead of sending (default-friendly for dev)
+#   "resend"     - Resend API, free 3,000 emails/mo (set RESEND_API_KEY below)
+#   "cloudflare" - Cloudflare Email Service binding (Workers Paid + onboarded domain)
+# Using something else (Postmark, SES, ...)? Implement the 5-line EmailProvider
+# interface in src/worker/email/provider.ts.
+# RESEND_API_KEY=""
+# Sender address on your verified domain, e.g. "Downloads <orders@yourdomain.com>"
+# EMAIL_FROM=""
+
+# --- R2 presigned downloads ------------------------------------------------
+# Without these, downloads stream through the Worker (works fine, costs Worker
+# time on big files). With them, buyers get 302'd to a short-lived R2 URL.
+# Create at: Cloudflare dashboard > R2 > Manage API tokens (Object Read access)
+# R2_ACCOUNT_ID=""
+# R2_ACCESS_KEY_ID=""
+# R2_SECRET_ACCESS_KEY=""
+
+# --- Local development only --------------------------------------------------
+# Set to 1 to browse the UI at localhost:5173 without a Shopify store.
+# Ignored on any non-localhost host.
+# DEV_BYPASS_AUTH="1"
