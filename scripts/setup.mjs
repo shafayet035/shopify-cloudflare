@@ -10,7 +10,7 @@
  * it replaces the known default names, so rerunning after manual renames
  * will find nothing to change.
  */
-import { readFile, writeFile, copyFile, access } from "node:fs/promises";
+import { readFile, writeFile, copyFile, access, rename } from "node:fs/promises";
 import { createInterface } from "node:readline/promises";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -78,6 +78,24 @@ for (const file of FILES) {
 		console.log(`  updated ${file}`);
 		changedAnything = true;
 	}
+}
+
+// Theme app extension: rename before the first `shopify app deploy` (renaming
+// a deployed extension registers a brand-new one, so setup is the safe moment).
+const oldExtDir = join(root, "extensions", "digital-delivery");
+try {
+	await access(oldExtDir);
+	const extToml = join(oldExtDir, "shopify.extension.toml");
+	const before = await readFile(extToml, "utf8");
+	const after = before.replaceAll("digital-delivery", `${slug}-delivery`);
+	if (after !== before) {
+		await writeFile(extToml, after);
+		await rename(oldExtDir, join(root, "extensions", `${slug}-delivery`));
+		console.log(`  renamed extensions/digital-delivery -> extensions/${slug}-delivery`);
+		changedAnything = true;
+	}
+} catch {
+	// already renamed (or removed) — nothing to do
 }
 
 if (!changedAnything) {
