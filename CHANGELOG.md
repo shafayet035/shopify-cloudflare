@@ -19,3 +19,4 @@ Initial release.
 - Mandatory compliance webhook handlers
 - Vitest (Workers runtime) test suite, GitHub Actions CI
 - `npm run setup` — post-clone personalization (app name + resource names)
+- `npm run deploy` — build + deploy, then auto-sync `application_url` and the `SHOPIFY_APP_URL` secret from the deployed workers.dev URL (custom domains respected)

@@ -37,7 +37,7 @@
 		"dev": "vite",
 		"build": "tsc -b && vite build",
 		"check": "tsc -b && vite build && wrangler deploy --dry-run",
-		"deploy": "npm run build && wrangler deploy",
+		"deploy": "node scripts/deploy.mjs",
 		"db:generate": "drizzle-kit generate && node scripts/bundle-migrations.mjs",
 		"db:migrate": "curl -fsS \"$APP_URL/api/health\"",
 		"shopify:dev": "shopify app dev",

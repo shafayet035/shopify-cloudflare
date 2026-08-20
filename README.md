@@ -88,11 +88,13 @@ shopify app config link           # connect to your Partner-dashboard app
 shopify app deploy                # pushes scopes, webhooks, theme extension
 ```
 
-Set `application_url` in `shopify.app.toml` to your `*.workers.dev` URL first
-(shown by `npm run deploy`). The database schema applies itself on the first
-request — check `https://<your-worker>.workers.dev/api/health` returns
-`{"ok":true}` and you're live. Install the app on your dev store from the
-Partner dashboard.
+`npm run deploy` also syncs your app URL automatically: it reads the deployed
+`*.workers.dev` URL from wrangler's output, patches `application_url` /
+`redirect_urls` in `shopify.app.toml`, and sets the Worker's `SHOPIFY_APP_URL`
+secret (custom domains are detected and left alone). The database schema
+applies itself on the first request — check
+`https://<your-worker>.workers.dev/api/health` returns `{"ok":true}` and you're
+live. Install the app on your dev store from the Partner dashboard.
 
 > If your account asks for it, create the queues once:
 > `npx wrangler queues create shopify-jobs && npx wrangler queues create shopify-jobs-dlq`
