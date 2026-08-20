@@ -69,16 +69,19 @@ npm run setup                     # asks for your app name, renames the worker,
 
 ### A. Deploy in 3 commands
 
-```bash
-# fill in the 3 REQUIRED values in .dev.vars (Shopify key/secret/app URL), then:
-npm run deploy                    # builds + deploys; auto-provisions D1 and R2
-```
-
-Then upload your secrets and connect Shopify:
+Fill in the REQUIRED values in `.dev.vars` (Shopify key/secret), upload them,
+and deploy — in this order, because `npm run deploy` finishes by setting the
+correct `SHOPIFY_APP_URL` for you:
 
 ```bash
 npx wrangler secret bulk .dev.vars
 ```
+
+```bash
+npm run deploy                    # builds + deploys; auto-provisions D1 and R2
+```
+
+Then connect Shopify:
 
 ```bash
 shopify app config link           # connect to your Partner-dashboard app
@@ -96,8 +99,8 @@ applies itself on the first request — check
 `https://<your-worker>.workers.dev/api/health` returns `{"ok":true}` and you're
 live. Install the app on your dev store from the Partner dashboard.
 
-> If your account asks for it, create the queues once:
-> `npx wrangler queues create shopify-jobs && npx wrangler queues create shopify-jobs-dlq`
+> If your account asks for it, create the two queues once (their names are in
+> `wrangler.jsonc` under `queues`): `npx wrangler queues create <name>`
 
 ### B. Git-connected deploys (optional)
 
