@@ -33,6 +33,7 @@
 	},
 	"private": true,
 	"scripts": {
+		"setup": "node scripts/setup.mjs",
 		"dev": "vite",
 		"build": "tsc -b && vite build",
 		"check": "tsc -b && vite build && wrangler deploy --dry-run",
@@ -45,5 +46,8 @@
 		"lint": "eslint .",
 		"cf-typegen": "wrangler types"
 	},
-	"type": "module"
+	"type": "module",
+	"engines": {
+		"node": ">=22"
+	}
 }

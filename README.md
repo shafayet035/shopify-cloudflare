@@ -59,11 +59,18 @@ throughout — replace it with your own app in an afternoon.
 2. A [Shopify Partner account](https://partners.shopify.com) + a development store
 3. Node.js 22+, and the Shopify CLI: `npm install -g @shopify/cli`
 
-### A. Deploy in 3 commands
+### 0. Make it yours (one time)
 
 ```bash
 npm install
-cp .dev.vars.example .dev.vars   # only 3 values are required (Shopify key/secret/app URL)
+npm run setup                     # asks for your app name, renames the worker,
+                                  # D1/R2/queue resources, and creates .dev.vars
+```
+
+### A. Deploy in 3 commands
+
+```bash
+# fill in the 3 REQUIRED values in .dev.vars (Shopify key/secret/app URL), then:
 npm run deploy                    # builds + deploys; auto-provisions D1 and R2
 ```
 
@@ -197,7 +204,7 @@ Delete-to-customize checklist — the example domain is isolated to:
 Keep: auth, webhook plumbing, queue consumer, migration bootstrap, the HTML
 shell, and `ShopCoordinator`. Then:
 
-- Rename the app in `wrangler.jsonc` (`name`, resource names) and `shopify.app.toml`
+- Naming is handled by `npm run setup` (worker, D1, R2, queues, app name/handle)
 - Adjust `[access_scopes]` to what your app actually needs
 - **Billing:** use [Shopify App Pricing](https://shopify.dev/docs/apps/launch/billing/shopify-app-pricing)
   (zero code, configured in the Partner dashboard); a programmatic example is
