@@ -20,3 +20,18 @@ Initial release.
 - Vitest (Workers runtime) test suite, GitHub Actions CI
 - `npm run setup` — post-clone personalization (app name + resource names)
 - `npm run deploy` — build + deploy, then auto-sync `application_url` and the `SHOPIFY_APP_URL` secret from the deployed workers.dev URL (custom domains respected)
+
+## 1.1.0 — 2026-08-20
+
+- **Feature-module architecture**: worker code reorganized from technical
+  layers into deep feature modules (`features/shopify`, `features/grants`,
+  `features/assets`, `features/dashboard`) with `shared/` infrastructure.
+- **Grant module deepened**: new interface `createForOrder()` / `redeem(token)`;
+  `redeem` owns the delivery choice (presign vs stream) and is the single live
+  writer of `downloads_used` (the DownloadGate alarm reconciles at expiry).
+- **Asset module**: multipart upload, key layout, and delete cascade
+  consolidated behind one interface; bad key access now returns 403 (was 500).
+- **Shared API contract**: `src/shared/api-types.ts` imported by both Worker
+  and client.
+- Added `CONTEXT.md` (domain glossary) and `docs/adr/0001` (no repository layer).
+- Tests: grants module covered through its interface (11 tests total).

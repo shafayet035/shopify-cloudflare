@@ -1,26 +1,36 @@
 import { Hono } from "hono";
-import { ensureDbReady } from "./db/bootstrap";
-import { isValidShopDomain } from "./shopify/client";
-import { apiRoutes } from "./routes/api";
-import { webhookRoutes } from "./routes/webhooks";
-import { downloadRoutes } from "./routes/downloads";
-import { handleQueueBatch } from "./queue/consumer";
+import { ensureDbReady } from "./shared/db/bootstrap";
+import { handleQueueBatch } from "./shared/queue";
+import { isValidShopDomain, shopifyAuth } from "./features/shopify/index";
+import { webhookRoutes } from "./features/shopify/routes";
+import { dashboardRoutes } from "./features/dashboard/routes";
+import { assetApiRoutes } from "./features/assets/routes";
+import { downloadRoutes, grantApiRoutes } from "./features/grants/routes";
 import type { AppEnv, Env, JobMessage } from "./types";
 
 // Durable Object classes must be exported from the Worker entrypoint.
-export { ShopCoordinator } from "./do/ShopCoordinator";
-export { DownloadGate } from "./do/DownloadGate";
+export { ShopCoordinator } from "./shared/ShopCoordinator";
+export { DownloadGate } from "./features/grants/DownloadGate";
 
 const app = new Hono<AppEnv>();
 
-// D1 schema is self-applying (see db/bootstrap.ts) — after the first request
-// per isolate this await resolves instantly.
+// D1 schema is self-applying (see shared/db/bootstrap.ts) — after the first
+// request per isolate this await resolves instantly.
 app.use("*", async (c, next) => {
 	await ensureDbReady(c.env);
 	await next();
 });
 
-app.route("/api", apiRoutes);
+// /api/* — authenticated with a Shopify session token, except /api/health
+// (the deploy smoke-test, which also triggers the D1 bootstrap above).
+const api = new Hono<AppEnv>();
+api.get("/health", (c) => c.json({ ok: true }));
+api.use("*", shopifyAuth);
+api.route("/", dashboardRoutes); // /api/me
+api.route("/", assetApiRoutes); // /api/assets, /api/uploads
+api.route("/grants", grantApiRoutes); // /api/grants
+
+app.route("/api", api);
 app.route("/webhooks", webhookRoutes);
 app.route("/download", downloadRoutes);
 

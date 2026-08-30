@@ -1,5 +1,5 @@
-import type { ShopCoordinator } from "./do/ShopCoordinator";
-import type { DownloadGate } from "./do/DownloadGate";
+import type { ShopCoordinator } from "./shared/ShopCoordinator";
+import type { DownloadGate } from "./features/grants/DownloadGate";
 
 /**
  * Everything the Worker receives from the platform. Bindings come from

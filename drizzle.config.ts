@@ -3,6 +3,6 @@ import { defineConfig } from "drizzle-kit";
 export default defineConfig({
 	dialect: "sqlite",
 	driver: "d1-http",
-	schema: "./src/worker/db/schema.ts",
+	schema: "./src/worker/shared/db/schema.ts",
 	out: "./migrations",
 });

@@ -139,16 +139,21 @@ webhook HMAC, auth, download-gate, and migration tests included.
 
 ## Architecture tour
 
+The code is organized by **feature module**, not by technical layer. Each
+feature folder is a deep module: `index.ts` is the interface, `routes.ts` the
+thin HTTP mapping, everything else implementation. `CONTEXT.md` holds the
+domain glossary; `docs/adr/` records design decisions.
+
 | Path | What it is |
 |---|---|
-| `src/worker/index.ts` | Hono app assembly, queue export, HTML shell (CSP + App Bridge meta injection) |
-| `src/worker/shopify/` | Session-token auth + token exchange, Admin GraphQL helper, webhook verification |
-| `src/worker/db/` | Drizzle schema, **self-applying migrations** (see below) |
-| `src/worker/do/` | `ShopCoordinator` (webhook dedup, locks, migration lock), `DownloadGate` (atomic download limits) |
-| `src/worker/queue/` | Consumer + one job per webhook topic |
-| `src/worker/r2/` | Multipart upload broker, presigned download URLs |
-| `src/worker/email/` | Pluggable provider: console (default) / Resend / Cloudflare Email Service / bring-your-own |
-| `src/client/` | React SPA with Polaris **web components** + App Bridge (both from Shopify's CDN — no UI bundle weight) |
+| `src/worker/index.ts` | Hono assembly, queue export, HTML shell (CSP + App Bridge meta injection) |
+| `src/worker/features/shopify/` | The platform module: session-token auth + token exchange, Admin GraphQL, webhook verification, lifecycle jobs |
+| `src/worker/features/grants/` | The Grant module: `createForOrder()` + `redeem(token)`, with the `DownloadGate` DO as an internal seam |
+| `src/worker/features/assets/` | The Asset module: multipart uploads to R2, product links, delete cascade |
+| `src/worker/features/dashboard/` | `/api/me` — the stats the Dashboard page shows |
+| `src/worker/shared/` | Infrastructure: Drizzle schema + **self-applying migrations**, queue consumer, email providers, `ShopCoordinator` DO, R2 presigning |
+| `src/shared/api-types.ts` | The API contract — imported by both Worker and client, so field drift is a type error |
+| `src/client/` | React SPA (feature folders) with Polaris **web components** + App Bridge from Shopify's CDN |
 | `extensions/` | Theme app extension (storefront blocks) |
 
 ### Auth: token exchange, not OAuth
@@ -156,7 +161,7 @@ webhook HMAC, auth, download-gate, and migration tests included.
 Embedded apps no longer need the OAuth redirect flow. Shopify installs the app
 with the scopes declared in `shopify.app.toml` (*managed installation*), and
 every request from the embedded UI carries a 60-second session token. The
-middleware in `src/worker/shopify/auth.ts` verifies it and — when needed —
+middleware in `src/worker/features/shopify/index.ts` verifies it and — when needed —
 exchanges it for a permanent offline token stored in D1 (one row per shop).
 That's the whole auth model.
 
@@ -168,7 +173,7 @@ after a deploy, a globally-unique Durable Object applies pending migrations
 exactly once, no matter how many isolates race. Change the schema like this:
 
 ```bash
-# 1. edit src/worker/db/schema.ts
+# 1. edit src/worker/shared/db/schema.ts
 npm run db:generate   # drizzle-kit generate + bundle into the Worker
 npm run deploy
 ```
@@ -182,7 +187,7 @@ All topics point at `POST /webhooks`. The handler verifies the HMAC (401 on
 failure — App Store review tests this), dedupes by webhook id, enqueues, and
 returns within milliseconds. Topics arrive in the consumer normalized to
 GraphQL-enum form (`ORDERS_PAID`). The three mandatory compliance topics are
-subscribed and handled in `src/worker/queue/jobs/compliance.ts` — review those
+subscribed and handled in `src/worker/features/shopify/jobs.ts` — review those
 handlers before you submit to the App Store.
 
 ### Downloads
@@ -200,20 +205,22 @@ race-proof) → delivery:
 
 Delete-to-customize checklist — the example domain is isolated to:
 
-1. `src/worker/db/schema.ts` — the three tables below `shops`
-2. `src/worker/queue/jobs/orderPaid.ts` + `email/templates.ts`
-3. `src/worker/routes/downloads.ts` and `src/worker/r2/`
-4. `src/client/pages/` — the three example pages
+1. `src/worker/features/grants/` and `src/worker/features/assets/` — replace
+   with your own feature modules (same shape: `index.ts` interface,
+   `routes.ts` HTTP mapping)
+2. `src/worker/shared/db/schema.ts` — the three tables below `shops`
+3. `src/worker/shared/email/templates.ts` and `src/shared/api-types.ts`
+4. `src/client/features/` — the example pages
 5. `extensions/digital-delivery/` — the storefront badge
 
-Keep: auth, webhook plumbing, queue consumer, migration bootstrap, the HTML
-shell, and `ShopCoordinator`. Then:
+Keep: `features/shopify/`, `shared/` (queue consumer, migration bootstrap,
+email providers, `ShopCoordinator`), and the HTML shell. Then:
 
 - Naming is handled by `npm run setup` (worker, D1, R2, queues, app name/handle)
 - Adjust `[access_scopes]` to what your app actually needs
 - **Billing:** use [Shopify App Pricing](https://shopify.dev/docs/apps/launch/billing/shopify-app-pricing)
   (zero code, configured in the Partner dashboard); a programmatic example is
-  commented in `src/worker/shopify/graphql.ts`
+  commented in `src/worker/features/shopify/index.ts`
 
 ## Gotchas & FAQ
 

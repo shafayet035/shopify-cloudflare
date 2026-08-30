@@ -1,7 +1,7 @@
 import { BrowserRouter, Link, Route, Routes } from "react-router";
-import Dashboard from "./pages/Dashboard";
-import Assets from "./pages/Assets";
-import Settings from "./pages/Settings";
+import Dashboard from "./features/dashboard/Dashboard";
+import Assets from "./features/assets/Assets";
+import Settings from "./features/settings/Settings";
 
 export default function App() {
 	return (

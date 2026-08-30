@@ -1,5 +1,5 @@
 /**
- * Bundles migrations/*.sql into src/worker/db/migrations.gen.ts so the Worker
+ * Bundles migrations/*.sql into src/worker/shared/db/migrations.gen.ts so the Worker
  * can apply its own schema at runtime (see src/worker/db/bootstrap.ts). Runs as
  * part of `npm run db:generate` — commit the generated file.
  *
@@ -13,7 +13,7 @@ import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const migrationsDir = join(root, "migrations");
-const outFile = join(root, "src/worker/db/migrations.gen.ts");
+const outFile = join(root, "src/worker/shared/db/migrations.gen.ts");
 
 const files = (await readdir(migrationsDir))
 	.filter((f) => f.endsWith(".sql"))
@@ -37,4 +37,4 @@ export const MIGRATIONS: Migration[] = ${JSON.stringify(entries, null, "\t")};
 `;
 
 await writeFile(outFile, body);
-console.log(`Bundled ${entries.length} migration(s) into src/worker/db/migrations.gen.ts`);
+console.log(`Bundled ${entries.length} migration(s) into src/worker/shared/db/migrations.gen.ts`);

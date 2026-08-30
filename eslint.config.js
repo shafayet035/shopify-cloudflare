@@ -5,7 +5,7 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-	{ ignores: ["dist", "worker-configuration.d.ts", "src/worker/db/migrations.gen.ts"] },
+	{ ignores: ["dist", "worker-configuration.d.ts", "src/worker/shared/db/migrations.gen.ts"] },
 	{
 		extends: [js.configs.recommended, ...tseslint.configs.recommended],
 		files: ["**/*.{ts,tsx}"],
