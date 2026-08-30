@@ -1,4 +1,4 @@
-export default function Settings() {
+export function Settings() {
 	return (
 		<s-page heading="Settings">
 			<s-section heading="Email delivery">

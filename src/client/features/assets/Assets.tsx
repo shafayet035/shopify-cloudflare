@@ -1,18 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { authFetch, authJson } from "../../lib/authFetch";
-import type {
-	AssetSummary,
-	BeginUploadResponse,
-	UploadPartResponse,
-} from "../../../shared/api-types";
+import { useUpload } from "./_hooks/useUpload";
+import type { AssetSummary } from "../../../shared/api-types";
 
-const PART_SIZE = 10 * 1024 * 1024; // R2 multipart parts must be >= 5 MiB (except the last)
-
-export default function Assets() {
+export function Assets() {
 	const [assets, setAssets] = useState<AssetSummary[]>([]);
-	const [uploading, setUploading] = useState<string | null>(null);
 	const [error, setError] = useState<string | null>(null);
-	const fileInput = useRef<HTMLInputElement>(null);
 
 	const reload = useCallback(() => {
 		authJson<{ assets: AssetSummary[] }>("/api/assets")
@@ -22,45 +15,7 @@ export default function Assets() {
 
 	useEffect(reload, [reload]);
 
-	async function upload(file: File) {
-		setError(null);
-		setUploading(`Uploading ${file.name}…`);
-		try {
-			// 1) create the multipart upload
-			const { assetId, key, uploadId } = await authJson<BeginUploadResponse>("/api/uploads", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ filename: file.name, contentType: file.type }),
-			});
-
-			// 2) send the parts through the Worker
-			const parts: UploadPartResponse[] = [];
-			const totalParts = Math.max(1, Math.ceil(file.size / PART_SIZE));
-			for (let i = 0; i < totalParts; i++) {
-				const chunk = file.slice(i * PART_SIZE, (i + 1) * PART_SIZE);
-				const query = new URLSearchParams({ key, uploadId });
-				const part = await authJson<UploadPartResponse>(
-					`/api/uploads/${assetId}/parts/${i + 1}?${query}`,
-					{ method: "PUT", body: chunk },
-				);
-				parts.push(part);
-				setUploading(`Uploading ${file.name}… ${Math.round(((i + 1) / totalParts) * 100)}%`);
-			}
-
-			// 3) complete
-			await authJson(`/api/uploads/${assetId}/complete`, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ key, uploadId, parts, filename: file.name, contentType: file.type }),
-			});
-			reload();
-		} catch (e) {
-			setError(String(e));
-		} finally {
-			setUploading(null);
-			if (fileInput.current) fileInput.current.value = "";
-		}
-	}
+	const { upload, status, error: uploadError, fileInput, busy } = useUpload(reload);
 
 	async function linkProduct(assetId: string) {
 		const productId = window.prompt(
@@ -88,9 +43,9 @@ export default function Assets() {
 
 	return (
 		<s-page heading="Assets">
-			{error && (
+			{(error ?? uploadError) && (
 				<s-banner tone="critical" heading="Something went wrong">
-					{error}
+					{error ?? uploadError}
 				</s-banner>
 			)}
 			<s-section heading="Upload a file">
@@ -100,13 +55,13 @@ export default function Assets() {
 				<input
 					ref={fileInput}
 					type="file"
-					disabled={uploading !== null}
+					disabled={busy}
 					onChange={(e) => {
 						const file = e.target.files?.[0];
 						if (file) void upload(file);
 					}}
 				/>
-				{uploading && <s-text>{uploading}</s-text>}
+				{status && <s-text>{status}</s-text>}
 			</s-section>
 			<s-section heading="Your files">
 				{assets.length === 0 ? (

@@ -3,6 +3,10 @@
 The vocabulary this codebase is written in. Feature modules live in
 `src/worker/features/<name>/` — each is a deep module: `index.ts` is the
 interface, `routes.ts` the thin HTTP mapping, everything else implementation.
+The client mirrors the shape: `src/client/features/<name>/` with `index.ts`
+as the interface and underscore-prefixed folders (`_hooks/`, `_components/`)
+as private implementation; `layout/` holds shared chrome, `router.tsx` the
+route table.
 
 - **Shop**: an installed store, identified by its permanent `*.myshopify.com`
   domain. One D1 row holding the offline access token from token exchange.

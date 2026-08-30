@@ -55,3 +55,12 @@ Code-review fixes (standards + spec axes):
 - `UploadRef` type bundles the `{key, uploadId}` params; unused `variant_id`
   column removed from `product_assets` (migration regenerated pre-release).
 - Added the missing `expired` deny-path test (12 tests total).
+
+## 1.2.0 — 2026-08-20
+
+- **Client feature architecture**: mirrors the worker's deep-module shape —
+  `features/<name>/index.ts` is the interface, underscore-prefixed folders
+  (`_hooks/`) are private implementation. Route table extracted to
+  `router.tsx`, shared chrome to `layout/AppLayout.tsx`.
+- Multipart upload state machine extracted to
+  `features/assets/_hooks/useUpload.ts` — reusable and readable on its own.

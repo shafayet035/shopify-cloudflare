@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { authJson } from "../../lib/authFetch";
 import type { GrantSummary, MeResponse } from "../../../shared/api-types";
 
-export default function Dashboard() {
+export function Dashboard() {
 	const [me, setMe] = useState<MeResponse | null>(null);
 	const [grants, setGrants] = useState<GrantSummary[]>([]);
 	const [error, setError] = useState<string | null>(null);
