@@ -61,6 +61,8 @@ export type JobMessage = {
 export interface ShopContext {
 	shop: string;
 	accessToken: string;
+	/** True only in DEV_BYPASS_AUTH local mode — there is no real store behind this context. */
+	isDevBypass: boolean;
 }
 
 /** Hono generics used across all routes. */

@@ -1,9 +1,14 @@
 /**
  * The Grant module: a buyer's right to download purchased files.
  *
- * Interface:
- *   createForOrder(env, shop, order) -> { links, insertedNew }
+ * Primary interface:
+ *   createForOrder(env, shop, order) -> { links, insertedNew, expiresAt }
  *   redeem(env, token)               -> Redemption (redirect | stream | denied)
+ * Admin/cascade interface:
+ *   listForShop(env, shop)           -> grant summaries for the dashboard
+ *   statsForShop(env, shop)          -> { grantCount, totalDownloads }
+ *   removeForAsset(env, assetId)     -> called by the assets module's cascade
+ *   removeAllForShop(env, shop)      -> called by shop/redact
  *
  * Everything else — the grant rows, idempotency, the atomic download counter
  * (DownloadGate, an internal seam), expiry, and the presign-vs-stream delivery
@@ -11,7 +16,7 @@
  * after the gate admits a download; the gate's expiry alarm reconciles the
  * final count (see DownloadGate.ts).
  */
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, count, desc, eq, inArray, sql, sum } from "drizzle-orm";
 import { db } from "../../shared/db/client";
 import { assets, downloadGrants, productAssets } from "../../shared/db/schema";
 import { presignConfigured, presignDownloadUrl } from "../../shared/r2";
@@ -35,16 +40,18 @@ export interface OrderForGrants {
  * Create download grants for a paid order. Idempotent — the unique index on
  * (order_id, asset_id) plus onConflictDoNothing means a redelivered or retried
  * job never double-grants. Returns ALL of the order's links (existing + new)
- * so a retry after a partial failure can still deliver the complete list, and
- * `insertedNew` so the caller can decide whether an email is owed.
+ * so a retry after a partial failure can still deliver the complete list,
+ * `insertedNew` so the caller can decide whether an email is owed, and the
+ * stored `expiresAt` so callers never re-derive (and drift from) the expiry.
  */
 export async function createForOrder(
 	env: Env,
 	shop: string,
 	order: OrderForGrants,
-): Promise<{ links: GrantedLink[]; insertedNew: boolean }> {
+): Promise<{ links: GrantedLink[]; insertedNew: boolean; expiresAt: Date | null }> {
 	const d = db(env.DB);
-	if (order.productIds.length === 0) return { links: [], insertedNew: false };
+	const none = { links: [], insertedNew: false, expiresAt: null };
+	if (order.productIds.length === 0) return none;
 
 	// Which uploaded assets are linked to the purchased products?
 	const links = await d
@@ -56,7 +63,7 @@ export async function createForOrder(
 				inArray(productAssets.productId, order.productIds),
 			),
 		);
-	if (links.length === 0) return { links: [], insertedNew: false };
+	if (links.length === 0) return none;
 
 	const expiresAt = new Date(Date.now() + GRANT_TTL_DAYS * 24 * 60 * 60 * 1000);
 	let insertedNew = false;
@@ -79,10 +86,15 @@ export async function createForOrder(
 	}
 
 	const orderGrants = await d
-		.select({ token: downloadGrants.token, filename: assets.filename })
+		.select({
+			token: downloadGrants.token,
+			filename: assets.filename,
+			expiresAt: downloadGrants.expiresAt,
+		})
 		.from(downloadGrants)
 		.innerJoin(assets, eq(downloadGrants.assetId, assets.id))
 		.where(and(eq(downloadGrants.shopDomain, shop), eq(downloadGrants.orderId, order.orderId)));
+	if (orderGrants.length === 0) return none;
 
 	return {
 		links: orderGrants.map((g) => ({
@@ -90,6 +102,7 @@ export async function createForOrder(
 			url: `${env.SHOPIFY_APP_URL}/download/${g.token}`,
 		})),
 		insertedNew,
+		expiresAt: orderGrants[0].expiresAt,
 	};
 }
 
@@ -103,7 +116,7 @@ export type Redemption =
 			size: number;
 			etag: string;
 	  }
-	| { kind: "denied"; reason: "not_found" | "expired" | "limit_reached" };
+	| { kind: "denied"; reason: "not_found" | "expired" | "limit_reached" | "file_missing" };
 
 /**
  * Redeem a download token. Checks the grant, atomically spends one download
@@ -146,7 +159,7 @@ export async function redeem(env: Env, token: string): Promise<Redemption> {
 	}
 
 	const object = await env.ASSETS_BUCKET.get(grant.r2Key);
-	if (!object) return { kind: "denied", reason: "not_found" };
+	if (!object) return { kind: "denied", reason: "file_missing" };
 	return {
 		kind: "stream",
 		body: object.body,
@@ -155,4 +168,53 @@ export async function redeem(env: Env, token: string): Promise<Redemption> {
 		size: object.size,
 		etag: object.httpEtag,
 	};
+}
+
+/** Grant summaries for the admin dashboard (most recent first). */
+export function listForShop(env: Env, shop: string) {
+	return db(env.DB)
+		.select({
+			token: downloadGrants.token,
+			orderId: downloadGrants.orderId,
+			orderEmail: downloadGrants.orderEmail,
+			filename: assets.filename,
+			maxDownloads: downloadGrants.maxDownloads,
+			downloadsUsed: downloadGrants.downloadsUsed,
+			expiresAt: downloadGrants.expiresAt,
+			createdAt: downloadGrants.createdAt,
+		})
+		.from(downloadGrants)
+		.innerJoin(assets, eq(downloadGrants.assetId, assets.id))
+		.where(eq(downloadGrants.shopDomain, shop))
+		.orderBy(desc(downloadGrants.createdAt))
+		.limit(50);
+}
+
+export async function statsForShop(
+	env: Env,
+	shop: string,
+): Promise<{ grantCount: number; totalDownloads: number }> {
+	const [row] = await db(env.DB)
+		.select({ n: count(), downloads: sum(downloadGrants.downloadsUsed) })
+		.from(downloadGrants)
+		.where(eq(downloadGrants.shopDomain, shop));
+	return { grantCount: row.n, totalDownloads: Number(row.downloads ?? 0) };
+}
+
+/** Cascade hook for the assets module: an asset is being deleted. */
+export async function removeForAsset(env: Env, assetId: string): Promise<void> {
+	await db(env.DB).delete(downloadGrants).where(eq(downloadGrants.assetId, assetId));
+}
+
+/** Cascade hook for shop/redact: erase every grant the shop has. */
+export async function removeAllForShop(env: Env, shop: string): Promise<void> {
+	await db(env.DB).delete(downloadGrants).where(eq(downloadGrants.shopDomain, shop));
+}
+
+/** GDPR hook for customers/redact: scrub a buyer's email, keep the rows. */
+export async function redactEmail(env: Env, email: string): Promise<void> {
+	await db(env.DB)
+		.update(downloadGrants)
+		.set({ orderEmail: "[redacted]" })
+		.where(eq(downloadGrants.orderEmail, email));
 }

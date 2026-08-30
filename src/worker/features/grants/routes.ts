@@ -1,8 +1,6 @@
 import { Hono, type Context } from "hono";
-import { desc, eq } from "drizzle-orm";
-import { redeem } from "./index";
-import { db } from "../../shared/db/client";
-import { assets, downloadGrants } from "../../shared/db/schema";
+import { listForShop, redeem } from "./index";
+import { attachmentDisposition } from "../../shared/r2";
 import type { AppEnv } from "../../types";
 
 /** Public download endpoint — the links buyers get by email. A thin HTTP mapper over redeem(). */
@@ -18,7 +16,7 @@ downloadRoutes.get("/:token", async (c) => {
 				headers: {
 					"Content-Type": redemption.contentType,
 					"Content-Length": String(redemption.size),
-					"Content-Disposition": `attachment; filename="${redemption.filename.replaceAll('"', "")}"`,
+					"Content-Disposition": attachmentDisposition(redemption.filename),
 					etag: redemption.etag,
 				},
 			});
@@ -27,8 +25,9 @@ downloadRoutes.get("/:token", async (c) => {
 				not_found: "This download link doesn't exist.",
 				expired: "This download link has expired.",
 				limit_reached: "This link has reached its download limit.",
+				file_missing: "File not found.",
 			}[redemption.reason];
-			return errorPage(c, redemption.reason === "not_found" ? 404 : 410, message);
+			return errorPage(c, redemption.reason === "expired" || redemption.reason === "limit_reached" ? 410 : 404, message);
 		}
 	}
 });
@@ -38,23 +37,7 @@ export const grantApiRoutes = new Hono<AppEnv>();
 
 grantApiRoutes.get("/", async (c) => {
 	const { shop } = c.get("shop");
-	const rows = await db(c.env.DB)
-		.select({
-			token: downloadGrants.token,
-			orderId: downloadGrants.orderId,
-			orderEmail: downloadGrants.orderEmail,
-			filename: assets.filename,
-			maxDownloads: downloadGrants.maxDownloads,
-			downloadsUsed: downloadGrants.downloadsUsed,
-			expiresAt: downloadGrants.expiresAt,
-			createdAt: downloadGrants.createdAt,
-		})
-		.from(downloadGrants)
-		.innerJoin(assets, eq(downloadGrants.assetId, assets.id))
-		.where(eq(downloadGrants.shopDomain, shop))
-		.orderBy(desc(downloadGrants.createdAt))
-		.limit(50);
-	return c.json({ grants: rows });
+	return c.json({ grants: await listForShop(c.env, shop) });
 });
 
 function errorPage(c: Context, status: 404 | 410, message: string) {

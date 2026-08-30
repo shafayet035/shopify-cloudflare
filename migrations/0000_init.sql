@@ -27,7 +27,6 @@ CREATE UNIQUE INDEX `grants_order_asset` ON `download_grants` (`order_id`,`asset
 CREATE TABLE `product_assets` (
 	`shop_domain` text NOT NULL,
 	`product_id` text NOT NULL,
-	`variant_id` text,
 	`asset_id` text NOT NULL,
 	PRIMARY KEY(`shop_domain`, `product_id`, `asset_id`),
 	FOREIGN KEY (`shop_domain`) REFERENCES `shops`(`shop_domain`) ON UPDATE no action ON DELETE no action,

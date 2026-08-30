@@ -7,11 +7,15 @@ interface, `routes.ts` the thin HTTP mapping, everything else implementation.
 - **Shop**: an installed store, identified by its permanent `*.myshopify.com`
   domain. One D1 row holding the offline access token from token exchange.
 - **Asset**: a file a merchant uploaded to R2, owned by the `assets` module.
-  The R2 key layout `assets/{shop}/{assetId}/{filename}` is private to it.
+  The R2 key layout `assets/{shop}/{assetId}/{filename}` is private to it;
+  cross-module cleanup goes through `removeAllForShop()` / `removeAsset()`.
 - **Product link**: merchant configuration ("purchasing product X delivers
   asset Y"), managed by the `assets` module.
 - **Grant**: a buyer's right to download one asset, created by a paid order.
-  Owned by the `grants` module — interface: `createForOrder()` + `redeem()`.
+  Owned by the `grants` module — primary interface `createForOrder()` +
+  `redeem()`, plus admin/cascade calls (`listForShop`, `statsForShop`,
+  `removeForAsset`, `removeAllForShop`, `redactEmail`). Other modules touch
+  grant data only through these.
 - **Redemption**: the outcome of spending a grant download: `redirect`
   (presigned R2 URL), `stream` (through the Worker), or `denied`.
 - **DownloadGate**: internal seam of the `grants` module — a Durable Object

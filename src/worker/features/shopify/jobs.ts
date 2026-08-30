@@ -1,6 +1,9 @@
-import { eq } from "drizzle-orm";
-import { db, markShopUninstalled } from "../../shared/db/client";
-import { assets, downloadGrants, productAssets, shops } from "../../shared/db/schema";
+import { deleteShop, markShopUninstalled } from "./shops";
+import { removeAllForShop as removeAllAssetsForShop } from "../assets/index";
+import {
+	redactEmail,
+	removeAllForShop as removeAllGrantsForShop,
+} from "../grants/index";
 import type { Env } from "../../types";
 
 /**
@@ -27,7 +30,8 @@ export async function handleAppUninstalled(env: Env, shop: string): Promise<void
  * The endpoint already returned 200 (that satisfies the delivery requirement);
  * YOU are responsible for actually fulfilling each request within 30 days.
  * The handlers below cover the data this boilerplate stores — extend them for
- * any customer data your app adds.
+ * any customer data your app adds. Deletion goes through each owning module's
+ * interface (assets, grants) so storage details stay private to them.
  */
 export async function handleCompliance(
 	env: Env,
@@ -49,29 +53,15 @@ export async function handleCompliance(
 			// order_email on their grants (keep the rows so counts stay correct).
 			const customer = (payload as { customer?: { email?: string } }).customer;
 			if (customer?.email) {
-				await db(env.DB)
-					.update(downloadGrants)
-					.set({ orderEmail: "[redacted]" })
-					.where(eq(downloadGrants.orderEmail, customer.email));
+				await redactEmail(env, customer.email);
 			}
 			return;
 		}
 		case "SHOP_REDACT": {
 			// Sent 48h after uninstall: erase everything about the shop.
-			const d = db(env.DB);
-			await d.delete(downloadGrants).where(eq(downloadGrants.shopDomain, shop));
-			await d.delete(productAssets).where(eq(productAssets.shopDomain, shop));
-			// R2 objects for the shop are namespaced under assets/{shop}/
-			let cursor: string | undefined;
-			do {
-				const listing = await env.ASSETS_BUCKET.list({ prefix: `assets/${shop}/`, cursor });
-				if (listing.objects.length > 0) {
-					await env.ASSETS_BUCKET.delete(listing.objects.map((o) => o.key));
-				}
-				cursor = listing.truncated ? listing.cursor : undefined;
-			} while (cursor);
-			await d.delete(assets).where(eq(assets.shopDomain, shop));
-			await d.delete(shops).where(eq(shops.shopDomain, shop));
+			await removeAllGrantsForShop(env, shop);
+			await removeAllAssetsForShop(env, shop);
+			await deleteShop(env.DB, shop);
 			return;
 		}
 	}

@@ -41,7 +41,7 @@ export const assets = sqliteTable("assets", {
 		.$defaultFn(() => new Date()),
 });
 
-/** Which asset is delivered when which product (or variant) is purchased. */
+/** Which asset is delivered when which product is purchased. */
 export const productAssets = sqliteTable(
 	"product_assets",
 	{
@@ -49,7 +49,6 @@ export const productAssets = sqliteTable(
 			.notNull()
 			.references(() => shops.shopDomain),
 		productId: text("product_id").notNull(),
-		variantId: text("variant_id"),
 		assetId: text("asset_id")
 			.notNull()
 			.references(() => assets.id),

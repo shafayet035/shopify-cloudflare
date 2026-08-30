@@ -25,7 +25,7 @@ import {
 	type ApiVersion,
 	type Shopify,
 } from "@shopify/shopify-api";
-import { getShop, upsertShop, deleteShopToken } from "../../shared/db/client";
+import { deleteShop, getShop, upsertShop } from "./shops";
 import type { AppEnv, Env } from "../../types";
 
 if (!cfWorkerAdapterInitialized) {
@@ -73,7 +73,7 @@ export const shopifyAuth = createMiddleware<AppEnv>(async (c, next) => {
 			accessToken: "dev-bypass",
 			scope: "",
 		});
-		c.set("shop", { shop: "dev-shop.myshopify.com", accessToken: "dev-bypass" });
+		c.set("shop", { shop: "dev-shop.myshopify.com", accessToken: "dev-bypass", isDevBypass: true });
 		await next();
 		return;
 	}
@@ -119,7 +119,7 @@ export const shopifyAuth = createMiddleware<AppEnv>(async (c, next) => {
 		});
 	}
 
-	c.set("shop", { shop, accessToken: shopRow.accessToken });
+	c.set("shop", { shop, accessToken: shopRow.accessToken, isDevBypass: false });
 	await next();
 });
 
@@ -181,7 +181,7 @@ export async function adminGraphql<T = unknown>(
 		// HttpResponseError from the library carries the HTTP status code.
 		const status = (error as { response?: { code?: number } })?.response?.code;
 		if (status === 401) {
-			await deleteShopToken(env.DB, shop);
+			await deleteShop(env.DB, shop);
 			throw new AdminGraphqlError("Access token invalid — will re-exchange on next request", 401);
 		}
 		throw error;

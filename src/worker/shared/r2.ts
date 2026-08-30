@@ -3,6 +3,11 @@ import type { Env } from "../types";
 
 const DOWNLOAD_URL_TTL_SECONDS = 300; // short — the DownloadGate already limits mint-rate
 
+/** Content-Disposition value for a download, with quotes stripped from the name. */
+export function attachmentDisposition(filename: string): string {
+	return `attachment; filename="${filename.replaceAll('"', "")}"`;
+}
+
 export function presignConfigured(env: Env): boolean {
 	return Boolean(env.R2_ACCOUNT_ID && env.R2_ACCESS_KEY_ID && env.R2_SECRET_ACCESS_KEY);
 }
@@ -31,10 +36,7 @@ export async function presignDownloadUrl(
 		`https://${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${env.R2_BUCKET_NAME}/${encodeURIComponent(r2Key).replaceAll("%2F", "/")}`,
 	);
 	url.searchParams.set("X-Amz-Expires", String(DOWNLOAD_URL_TTL_SECONDS));
-	url.searchParams.set(
-		"response-content-disposition",
-		`attachment; filename="${filename.replaceAll('"', "")}"`,
-	);
+	url.searchParams.set("response-content-disposition", attachmentDisposition(filename));
 
 	const signed = await client.sign(new Request(url, { method: "GET" }), {
 		aws: { signQuery: true, service: "s3", region: "auto" },

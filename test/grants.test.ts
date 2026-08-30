@@ -18,7 +18,7 @@ describe("grants", () => {
 				"INSERT OR IGNORE INTO assets (id, shop_domain, r2_key, filename, size, content_type, created_at) VALUES ('a1', 't.myshopify.com', 'assets/t.myshopify.com/a1/f.pdf', 'f.pdf', 4, 'application/pdf', 0)",
 			),
 			env.DB.prepare(
-				"INSERT OR IGNORE INTO product_assets (shop_domain, product_id, variant_id, asset_id) VALUES ('t.myshopify.com', '42', NULL, 'a1')",
+				"INSERT OR IGNORE INTO product_assets (shop_domain, product_id, asset_id) VALUES ('t.myshopify.com', '42', 'a1')",
 			),
 		]);
 		await env.ASSETS_BUCKET.put("assets/t.myshopify.com/a1/f.pdf", "data");
@@ -62,5 +62,12 @@ describe("grants", () => {
 
 	it("denies an unknown token", async () => {
 		expect(await redeem(env, "nope")).toEqual({ kind: "denied", reason: "not_found" });
+	});
+
+	it("denies an expired grant", async () => {
+		await env.DB.prepare(
+			"INSERT INTO download_grants (token, shop_domain, order_id, order_email, asset_id, max_downloads, downloads_used, expires_at, created_at) VALUES ('expired-tok', 't.myshopify.com', 'o3', 'b@example.com', 'a1', 5, 0, 1000, 0)",
+		).run();
+		expect(await redeem(env, "expired-tok")).toEqual({ kind: "denied", reason: "expired" });
 	});
 });

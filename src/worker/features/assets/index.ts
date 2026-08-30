@@ -9,9 +9,10 @@
  * Multipart pattern per
  * https://developers.cloudflare.com/r2/api/workers/workers-multipart-usage/
  */
-import { and, desc, eq } from "drizzle-orm";
+import { and, count, desc, eq } from "drizzle-orm";
 import { db } from "../../shared/db/client";
-import { assets, downloadGrants, productAssets } from "../../shared/db/schema";
+import { assets, productAssets } from "../../shared/db/schema";
+import { removeForAsset as removeGrantsForAsset } from "../grants/index";
 import type { Env } from "../../types";
 
 export class AssetAccessError extends Error {
@@ -19,6 +20,12 @@ export class AssetAccessError extends Error {
 		super(message);
 		this.name = "AssetAccessError";
 	}
+}
+
+/** Identifies one in-progress multipart upload. */
+export interface UploadRef {
+	key: string;
+	uploadId: string;
 }
 
 function assertOwnKey(shop: string, key: string): void {
@@ -44,7 +51,7 @@ export async function beginUpload(
 export async function uploadPart(
 	env: Env,
 	shop: string,
-	params: { key: string; uploadId: string; partNumber: number; body: ReadableStream },
+	params: UploadRef & { partNumber: number; body: ReadableStream },
 ): Promise<{ partNumber: number; etag: string }> {
 	assertOwnKey(shop, params.key);
 	const upload = env.ASSETS_BUCKET.resumeMultipartUpload(params.key, params.uploadId);
@@ -55,10 +62,8 @@ export async function uploadPart(
 export async function finishUpload(
 	env: Env,
 	shop: string,
-	params: {
+	params: UploadRef & {
 		assetId: string;
-		key: string;
-		uploadId: string;
 		parts: { partNumber: number; etag: string }[];
 		filename: string;
 		contentType: string;
@@ -85,7 +90,7 @@ export async function finishUpload(
 export async function abortUpload(
 	env: Env,
 	shop: string,
-	params: { key: string; uploadId: string },
+	params: UploadRef,
 ): Promise<void> {
 	assertOwnKey(shop, params.key);
 	await env.ASSETS_BUCKET.resumeMultipartUpload(params.key, params.uploadId).abort();
@@ -119,9 +124,34 @@ export async function removeAsset(env: Env, shop: string, assetId: string): Prom
 
 	await env.ASSETS_BUCKET.delete(asset.r2Key);
 	await d.delete(productAssets).where(eq(productAssets.assetId, assetId));
-	await d.delete(downloadGrants).where(eq(downloadGrants.assetId, assetId));
+	await removeGrantsForAsset(env, assetId); // grants owns its own rows
 	await d.delete(assets).where(eq(assets.id, assetId));
 	return true;
+}
+
+export async function countForShop(env: Env, shop: string): Promise<number> {
+	const [row] = await db(env.DB)
+		.select({ n: count() })
+		.from(assets)
+		.where(eq(assets.shopDomain, shop));
+	return row.n;
+}
+
+/** Cascade hook for shop/redact: every file and link the shop has. */
+export async function removeAllForShop(env: Env, shop: string): Promise<void> {
+	// R2 objects for the shop are namespaced under assets/{shop}/
+	let cursor: string | undefined;
+	do {
+		const listing = await env.ASSETS_BUCKET.list({ prefix: `assets/${shop}/`, cursor });
+		if (listing.objects.length > 0) {
+			await env.ASSETS_BUCKET.delete(listing.objects.map((o) => o.key));
+		}
+		cursor = listing.truncated ? listing.cursor : undefined;
+	} while (cursor);
+
+	const d = db(env.DB);
+	await d.delete(productAssets).where(eq(productAssets.shopDomain, shop));
+	await d.delete(assets).where(eq(assets.shopDomain, shop));
 }
 
 /** When productId is purchased, the orders/paid job grants the buyer this asset. */

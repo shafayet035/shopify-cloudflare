@@ -35,3 +35,23 @@ Initial release.
   and client.
 - Added `CONTEXT.md` (domain glossary) and `docs/adr/0001` (no repository layer).
 - Tests: grants module covered through its interface (11 tests total).
+
+## 1.1.1 — 2026-08-20
+
+Code-review fixes (standards + spec axes):
+
+- Module ownership enforced: shop/redact and asset deletion now go through the
+  owning modules' interfaces (`assets.removeAllForShop`, `grants.removeAllForShop`,
+  `grants.removeForAsset`, `grants.redactEmail`) instead of reaching into other
+  modules' tables and R2 keys.
+- Dashboard got its deep module (`features/dashboard/index.ts`); the grants
+  admin listing moved behind `grants.listForShop()` — routes are thin again.
+- Shop-row storage moved from `shared/db` into `features/shopify/shops.ts`
+  (per ADR-0001); `deleteShopToken` renamed to `deleteShop` (it deletes the row).
+- `ShopContext.isDevBypass` flag replaces the `"dev-bypass"` string sentinel.
+- Download email now uses the stored grant expiry (no re-derivation drift);
+  missing R2 objects report "File not found" via a distinct `file_missing`
+  deny reason; shared `attachmentDisposition()` helper.
+- `UploadRef` type bundles the `{key, uploadId}` params; unused `variant_id`
+  column removed from `product_assets` (migration regenerated pre-release).
+- Added the missing `expired` deny-path test (12 tests total).

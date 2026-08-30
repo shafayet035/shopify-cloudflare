@@ -1,4 +1,4 @@
-import { createForOrder, GRANT_MAX_DOWNLOADS, GRANT_TTL_DAYS } from "./index";
+import { createForOrder, GRANT_MAX_DOWNLOADS } from "./index";
 import { getEmailProvider } from "../../shared/email/provider";
 import { downloadEmail } from "../../shared/email/templates";
 import type { Env } from "../../types";
@@ -11,7 +11,6 @@ interface OrderPaidPayload {
 	contact_email?: string;
 	line_items?: {
 		product_id: number | null;
-		variant_id: number | null;
 		title: string;
 	}[];
 }
@@ -41,19 +40,19 @@ export async function handleOrderPaid(
 		),
 	];
 
-	const { links, insertedNew } = await createForOrder(env, shop, {
+	const { links, insertedNew, expiresAt } = await createForOrder(env, shop, {
 		orderId: String(order.id),
 		email,
 		productIds,
 	});
-	if (links.length === 0) return;
+	if (links.length === 0 || !expiresAt) return;
 	if (!insertedNew && attempt === 1) return; // already granted AND already emailed
 
 	const message = downloadEmail({
 		shopName: shop.replace(".myshopify.com", ""),
 		orderName: order.name ?? String(order.id),
 		links,
-		expiresAt: new Date(Date.now() + GRANT_TTL_DAYS * 24 * 60 * 60 * 1000),
+		expiresAt, // the stored expiry, not re-derived — retries can't drift
 		maxDownloads: GRANT_MAX_DOWNLOADS,
 	});
 	await getEmailProvider(env).send({ to: email, ...message });
