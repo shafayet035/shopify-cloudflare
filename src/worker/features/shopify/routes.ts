@@ -27,12 +27,20 @@ webhookRoutes.post("/", async (c) => {
 		return c.json({ ok: true, duplicate: true });
 	}
 
+	let payload: unknown;
+	try {
+		payload = JSON.parse(rawBody);
+	} catch {
+		// HMAC-valid but not JSON — nothing a retry would fix.
+		return c.json({ error: "Body is not JSON" }, 400);
+	}
+
 	await c.env.JOBS.send({
 		type: "webhook",
 		topic: verified.topic,
 		shop: verified.shop,
 		webhookId,
-		payload: JSON.parse(rawBody),
+		payload,
 	});
 
 	return c.json({ ok: true });

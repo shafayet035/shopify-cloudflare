@@ -9,6 +9,7 @@ CREATE TABLE `assets` (
 	FOREIGN KEY (`shop_domain`) REFERENCES `shops`(`shop_domain`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
+CREATE INDEX `assets_shop_created` ON `assets` (`shop_domain`,`created_at`);--> statement-breakpoint
 CREATE TABLE `download_grants` (
 	`token` text PRIMARY KEY NOT NULL,
 	`shop_domain` text NOT NULL,
@@ -24,6 +25,8 @@ CREATE TABLE `download_grants` (
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `grants_order_asset` ON `download_grants` (`order_id`,`asset_id`);--> statement-breakpoint
+CREATE INDEX `grants_shop_created` ON `download_grants` (`shop_domain`,`created_at`);--> statement-breakpoint
+CREATE INDEX `grants_asset` ON `download_grants` (`asset_id`);--> statement-breakpoint
 CREATE TABLE `product_assets` (
 	`shop_domain` text NOT NULL,
 	`product_id` text NOT NULL,

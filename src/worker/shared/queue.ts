@@ -1,5 +1,5 @@
 import { ensureDbReady } from "./db/bootstrap";
-import { handleOrderPaid } from "../features/grants/orderPaid";
+import { handleOrderPaid } from "../features/grants/order-paid";
 import {
 	COMPLIANCE_TOPICS,
 	handleAppUninstalled,

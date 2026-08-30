@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { authJson } from "../../../lib/authFetch";
+import { authJson } from "../../../lib/auth-fetch";
 import type { BeginUploadResponse, UploadPartResponse } from "../../../../shared/api-types";
 
 const PART_SIZE = 10 * 1024 * 1024; // R2 multipart parts must be >= 5 MiB (except the last)

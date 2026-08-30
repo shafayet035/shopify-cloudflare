@@ -1,4 +1,5 @@
 import {
+	index,
 	integer,
 	primaryKey,
 	sqliteTable,
@@ -39,7 +40,10 @@ export const assets = sqliteTable("assets", {
 	createdAt: integer("created_at", { mode: "timestamp" })
 		.notNull()
 		.$defaultFn(() => new Date()),
-});
+},
+	// D1 bills by rows *scanned* — index the shop-scoped listing query.
+	(t) => [index("assets_shop_created").on(t.shopDomain, t.createdAt)],
+);
 
 /** Which asset is delivered when which product is purchased. */
 export const productAssets = sqliteTable(
@@ -80,5 +84,10 @@ export const downloadGrants = sqliteTable(
 			.notNull()
 			.$defaultFn(() => new Date()),
 	},
-	(t) => [uniqueIndex("grants_order_asset").on(t.orderId, t.assetId)],
+	(t) => [
+		uniqueIndex("grants_order_asset").on(t.orderId, t.assetId),
+		// Shop-scoped listing/stats and the per-asset delete cascade.
+		index("grants_shop_created").on(t.shopDomain, t.createdAt),
+		index("grants_asset").on(t.assetId),
+	],
 );

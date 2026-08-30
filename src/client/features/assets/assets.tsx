@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { authFetch, authJson } from "../../lib/authFetch";
-import { useUpload } from "./_hooks/useUpload";
+import { authFetch, authJson } from "../../lib/auth-fetch";
+import { useUpload } from "./_hooks/use-upload";
 import type { AssetSummary } from "../../../shared/api-types";
 
 export function Assets() {

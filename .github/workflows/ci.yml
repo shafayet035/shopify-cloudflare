@@ -16,5 +16,6 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx tsc -b
+      - run: npx eslint .
       - run: npx vite build
       - run: npm test

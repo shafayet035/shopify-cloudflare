@@ -63,4 +63,13 @@ Code-review fixes (standards + spec axes):
   (`_hooks/`) are private implementation. Route table extracted to
   `router.tsx`, shared chrome to `layout/AppLayout.tsx`.
 - Multipart upload state machine extracted to
-  `features/assets/_hooks/useUpload.ts` — reusable and readable on its own.
+  `features/assets/_hooks/use-upload.ts` — reusable and readable on its own.
+- Kebab-case file naming across worker and client (class names stay PascalCase).
+- Production hardening: global error handler (500s log server-side, never leak),
+  malformed JSON bodies answer 400 (`shared/http.ts` readJson), webhook bodies
+  that aren't JSON answer 400, filename length capped, `X-Content-Type-Options`
+  + `Referrer-Policy` headers on HTML, and `authFetch` retries once on the
+  App Bridge stale-session 401.
+- D1 indexes for every shop-scoped query (`assets_shop_created`,
+  `grants_shop_created`, `grants_asset`) — D1 bills by rows scanned.
+- CI now runs eslint alongside typecheck, build, and tests.

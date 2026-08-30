@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "f637124c-85dc-45d6-9c53-cac21903475f",
+  "id": "8960b445-237b-4246-9c14-316d753ddde1",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "assets": {
@@ -57,7 +57,16 @@
           "autoincrement": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "assets_shop_created": {
+          "name": "assets_shop_created",
+          "columns": [
+            "shop_domain",
+            "created_at"
+          ],
+          "isUnique": false
+        }
+      },
       "foreignKeys": {
         "assets_shop_domain_shops_shop_domain_fk": {
           "name": "assets_shop_domain_shops_shop_domain_fk",
@@ -154,6 +163,21 @@
             "asset_id"
           ],
           "isUnique": true
+        },
+        "grants_shop_created": {
+          "name": "grants_shop_created",
+          "columns": [
+            "shop_domain",
+            "created_at"
+          ],
+          "isUnique": false
+        },
+        "grants_asset": {
+          "name": "grants_asset",
+          "columns": [
+            "asset_id"
+          ],
+          "isUnique": false
         }
       },
       "foreignKeys": {

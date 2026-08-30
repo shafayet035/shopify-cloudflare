@@ -9,10 +9,16 @@ import { downloadRoutes, grantApiRoutes } from "./features/grants/routes";
 import type { AppEnv, Env, JobMessage } from "./types";
 
 // Durable Object classes must be exported from the Worker entrypoint.
-export { ShopCoordinator } from "./shared/ShopCoordinator";
-export { DownloadGate } from "./features/grants/DownloadGate";
+export { ShopCoordinator } from "./shared/shop-coordinator";
+export { DownloadGate } from "./features/grants/download-gate";
 
 const app = new Hono<AppEnv>();
+
+// Last-resort error handler: log the real error, never leak it to the client.
+app.onError((error, c) => {
+	console.error(`Unhandled error on ${c.req.method} ${c.req.path}:`, error);
+	return c.json({ error: "Internal server error" }, 500);
+});
 
 // D1 schema is self-applying (see shared/db/bootstrap.ts) — after the first
 // request per isolate this await resolves instantly.
@@ -61,6 +67,8 @@ app.get("*", async (c) => {
 			? `frame-ancestors https://${shop} https://admin.shopify.com;`
 			: "frame-ancestors https://admin.shopify.com;",
 	);
+	headers.set("X-Content-Type-Options", "nosniff");
+	headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
 	headers.delete("Content-Length"); // length changed after injection
 
 	return new Response(html, { status: assetResponse.status, headers });

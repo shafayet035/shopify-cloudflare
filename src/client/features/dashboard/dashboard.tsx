@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { authJson } from "../../lib/authFetch";
+import { authJson } from "../../lib/auth-fetch";
 import type { GrantSummary, MeResponse } from "../../../shared/api-types";
 
 export function Dashboard() {

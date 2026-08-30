@@ -1,5 +1,5 @@
 import { createBrowserRouter } from "react-router";
-import { AppLayout } from "./layout/AppLayout";
+import { AppLayout } from "./layout/app-layout";
 import { Dashboard } from "./features/dashboard";
 import { Assets } from "./features/assets";
 import { Settings } from "./features/settings";

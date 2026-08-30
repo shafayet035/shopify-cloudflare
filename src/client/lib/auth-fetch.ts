@@ -3,8 +3,22 @@
  * 60 seconds, so we ask App Bridge for a new one per request instead of caching.
  * Outside the Shopify admin (DEV_BYPASS_AUTH local mode) there is no App Bridge
  * global — we just send the request bare and the server's bypass handles it.
+ *
+ * A 401 with X-Shopify-Retry-Invalid-Session-Request means "the token aged
+ * out mid-flight — get a fresh one and retry", which we do exactly once.
  */
 export async function authFetch(input: string, init: RequestInit = {}): Promise<Response> {
+	const response = await send(input, init);
+	if (
+		response.status === 401 &&
+		response.headers.get("X-Shopify-Retry-Invalid-Session-Request") !== null
+	) {
+		return send(input, init);
+	}
+	return response;
+}
+
+async function send(input: string, init: RequestInit): Promise<Response> {
 	const headers = new Headers(init.headers);
 	if (typeof shopify !== "undefined" && shopify.idToken) {
 		headers.set("Authorization", `Bearer ${await shopify.idToken()}`);

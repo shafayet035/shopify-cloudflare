@@ -10,7 +10,10 @@ import {
 	unlinkProduct,
 	uploadPart,
 } from "./index";
+import { readJson } from "../../shared/http";
 import type { AppEnv } from "../../types";
+
+const MAX_FILENAME_LENGTH = 200;
 
 /**
  * Thin HTTP mapping over the Asset module. Mounted under /api behind
@@ -38,7 +41,8 @@ assetApiRoutes.delete("/assets/:id", async (c) => {
 
 assetApiRoutes.post("/assets/:id/links", async (c) => {
 	const { shop } = c.get("shop");
-	const { productId } = await c.req.json<{ productId: string }>();
+	const body = await readJson<{ productId: string }>(c);
+	const productId = body?.productId;
 	if (!productId?.trim()) return c.json({ error: "productId is required" }, 400);
 	await linkProduct(c.env, shop, c.req.param("id"), productId.trim());
 	return c.json({ ok: true });
@@ -52,11 +56,14 @@ assetApiRoutes.delete("/assets/:id/links/:productId", async (c) => {
 
 assetApiRoutes.post("/uploads", async (c) => {
 	const { shop } = c.get("shop");
-	const body = await c.req.json<{ filename: string; contentType?: string }>();
-	const filename = (body.filename ?? "").trim();
+	const body = await readJson<{ filename: string; contentType?: string }>(c);
+	const filename = (body?.filename ?? "").trim();
 	if (!filename) return c.json({ error: "filename is required" }, 400);
+	if (filename.length > MAX_FILENAME_LENGTH) {
+		return c.json({ error: `filename must be at most ${MAX_FILENAME_LENGTH} characters` }, 400);
+	}
 	return c.json(
-		await beginUpload(c.env, shop, filename, body.contentType ?? "application/octet-stream"),
+		await beginUpload(c.env, shop, filename, body?.contentType ?? "application/octet-stream"),
 	);
 });
 
@@ -74,13 +81,16 @@ assetApiRoutes.put("/uploads/:assetId/parts/:partNumber", async (c) => {
 
 assetApiRoutes.post("/uploads/:assetId/complete", async (c) => {
 	const { shop } = c.get("shop");
-	const body = await c.req.json<{
+	const body = await readJson<{
 		key: string;
 		uploadId: string;
 		parts: { partNumber: number; etag: string }[];
 		filename: string;
 		contentType?: string;
-	}>();
+	}>(c);
+	if (!body?.key || !body.uploadId || !Array.isArray(body.parts) || !body.filename) {
+		return c.json({ error: "key, uploadId, parts and filename are required" }, 400);
+	}
 	const asset = await finishUpload(c.env, shop, {
 		assetId: c.req.param("assetId"),
 		key: body.key,
